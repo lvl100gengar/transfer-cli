@@ -1,0 +1,59 @@
+# --- Python Specifics ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# --- Database & Environment Secrets ---
+# Sensitive credentials should be passed via env vars, not files
+.env
+.venv
+bin/
+include/
+lib/
+lib64/
+
+# --- Offline Deployment Artifacts ---
+# We keep the requirements.txt, but ignore the downloaded wheel binaries
+# wheelhouse/
+
+# --- RHEL / OS Specifics ---
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+*.swp
+*.swo
+
+# --- IDEs ---
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# --- Logs ---
+*.log

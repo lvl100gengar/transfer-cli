@@ -1,0 +1,54 @@
+Event Scheduler
+===============
+Enable the Event Scheduler. Without this, the 2-second cleanup and
+30-second "Reaper" tasks will never run, causing the in_transit_transfers
+table to eventually fill up and block all new transfers.
+
+Add this to your my.cnf or my.ini file under the [mysqld] section:
+
+event_scheduler=ON
+
+
+Timezone Consistency
+====================
+It is vital that the database and the application agree on the time. If
+the database is in UTC but your application sends timestamps in local
+time, your transfers will either expire instantly or stay "active" for hours.
+
+default-time-zone='+00:00'
+
+
+Performance Tuning
+==================
+Because your system performs a DELETE every 2 seconds and a SELECT/UPDATE
+for every transfer, the in_transit_transfers table is considered "high churn."
+
+For systems where speed is more important than 100% ACID guarantee during a
+rare OS crash, setting this to 2 significantly increases write throughput.
+
+innodb_flush_log_at_trx_commit = 2
+
+Ensure innodb_buffer_pool_size is large enough to hold your customer_limits
+and in_transit_transfers tables in memory.
+
+
+Connection Handling
+===================
+If the application uses a connection pool, you may hit limit issues under load.
+
+max_connections: The default is often 151. Increase this if you have many
+application nodes calling start_transfer simultaneously.
+
+wait_timeout: Since your transfers have a timeout_ms, ensure the MySQL
+wait_timeout is not shorter than your longest expected transfer, or the DB
+might close the connection while the application is still processing a large
+file.
+
+
+Binary Log Retention
+====================
+Since you are generating UUIDs and inserting binary data frequently, the binary
+logs (used for recovery/replication) will grow.
+
+binlog_expire_logs_seconds: Set this to a reasonable value (e.g., 259200 for 3
+days) to prevent the disk from filling up with old transaction logs.
