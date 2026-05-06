@@ -2,7 +2,7 @@ DROP DATABASE IF EXISTS e2e_tracking;
 CREATE DATABASE e2e_tracking;
 USE e2e_tracking;
 
--- 1. Identity & Limits (Source Server Only)
+-- 1. Identity & Limits
 CREATE TABLE customers (
     customer_id     BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     customer_name   VARCHAR(255) NOT NULL UNIQUE,
@@ -10,14 +10,16 @@ CREATE TABLE customers (
 );
 
 CREATE TABLE customer_limits (
-    customer_id          BIGINT UNSIGNED PRIMARY KEY,
-    max_simultaneous     INT UNSIGNED NOT NULL DEFAULT 10,
-    max_bytes_in_transit BIGINT UNSIGNED NOT NULL DEFAULT 1073741824,
-    timeout_ms           INT UNSIGNED NOT NULL DEFAULT 30000,
+    customer_id            BIGINT UNSIGNED PRIMARY KEY,
+    max_simultaneous       INT UNSIGNED NOT NULL DEFAULT 10,
+    max_bytes_in_transit   BIGINT UNSIGNED NOT NULL DEFAULT 1073741824,
+    curr_simultaneous      INT UNSIGNED NOT NULL DEFAULT 0,
+    curr_bytes_in_transit  BIGINT UNSIGNED NOT NULL DEFAULT 0,
+    timeout_ms             INT UNSIGNED NOT NULL DEFAULT 30000,
     FOREIGN KEY (customer_id) REFERENCES customers(customer_id) ON DELETE CASCADE
 );
 
--- 2. Permanent History (Source Server Only)
+-- 2. Permanent History
 CREATE TABLE transfers (
     transfer_id          BINARY(16) PRIMARY KEY,
     customer_id          BIGINT UNSIGNED NOT NULL,
@@ -36,12 +38,12 @@ CREATE TABLE transfers (
     completed_by_server  VARCHAR(64) NULL,
     http_status_code     SMALLINT UNSIGNED NULL,
     validation_code      SMALLINT UNSIGNED NULL,
-    INDEX idx_cust_time (customer_id, started_at),
-    INDEX idx_status (status)
+    -- Optimized index for 100 TPS lookups on active transfers
+    INDEX idx_active_lookup (status, customer_id, started_at),
+    INDEX idx_cust_time (customer_id, started_at)
 );
 
--- 3. Local Response Log (Completing Server Only)
--- This is the only table needed on the satellite instances.
+-- 3. Local Response Log (Satellite Instances)
 CREATE TABLE local_transfer_responses (
     transfer_id          BINARY(16) PRIMARY KEY,
     status               ENUM(
@@ -55,26 +57,11 @@ CREATE TABLE local_transfer_responses (
     INDEX idx_completed (completed_at)
 );
 
--- 4. Hot Path (Source Server Only)
-CREATE TABLE in_transit_transfers (
-    transfer_id     BINARY(16) PRIMARY KEY,
-    customer_id     BIGINT UNSIGNED NOT NULL,
-    bytes           BIGINT UNSIGNED NOT NULL,
-    expires_at      DATETIME(3) NOT NULL,
-    INDEX idx_expires (expires_at),
-    FOREIGN KEY (customer_id) REFERENCES customer_limits(customer_id) ON DELETE CASCADE
-);
-
--- 5. Automations (Source Server Only)
+-- 4. Automations
 DELIMITER //
 CREATE TRIGGER after_customer_insert
 AFTER INSERT ON customers FOR EACH ROW
 BEGIN
     INSERT INTO customer_limits (customer_id) VALUES (NEW.customer_id);
 END //
-
-CREATE EVENT cleanup_expired_transfers
-ON SCHEDULE EVERY 2 SECOND DO
-    DELETE FROM in_transit_transfers WHERE expires_at <= NOW(3);
-//
 DELIMITER ;
