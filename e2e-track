@@ -1,0 +1,15 @@
+#!/bin/bash
+
+# Get the directory where this script is located
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+
+# Check if venv exists
+if [ ! -d "$DIR/venv" ]; then
+    echo "Error: Virtual environment (venv) not found in $DIR"
+    exit 1
+fi
+
+# Execute using the venv python without needing to 'activate' it
+# This passes all CLI arguments ($@) to the python module
+export PYTHONPATH="$DIR"
+exec "$DIR/venv/bin/python3" -m src.main "$@"
